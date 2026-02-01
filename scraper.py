@@ -15,7 +15,7 @@ import json
 import csv
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Dict, List, Set
 import argparse
@@ -66,7 +66,7 @@ class MoltbookScraper:
         with open(STATE_FILE, "w") as f:
             json.dump({
                 "seen_posts": list(self.seen_posts),
-                "last_updated": datetime.utcnow().isoformat()
+                "last_updated": datetime.now(timezone.utc).isoformat()
             }, f, indent=2)
         
         with open(USERS_FILE, "w") as f:
@@ -171,25 +171,27 @@ class MoltbookScraper:
         }
     
     def scrape_submolt(self, submolt: str, target_count: int = 100) -> List[dict]:
-        """Scrape posts from a specific submolt."""
+        """Scrape posts from a specific submolt using multiple sort options."""
         print(f"\n{'='*60}")
         print(f"Scraping m/{submolt} - Target: {target_count} new posts")
         print(f"{'='*60}")
         
         collected = []
-        page = 0
-        consecutive_dupes = 0
-        max_consecutive_dupes = 3  # Stop if we hit 3 pages of all dupes
         
-        while len(collected) < target_count and consecutive_dupes < max_consecutive_dupes:
-            posts = self.get_posts(submolt=submolt, sort="new", limit=25)
-            
-            if not posts:
-                print("No more posts returned")
+        # Try different sort options to get more unique posts
+        sort_options = ["new", "hot", "top", "rising"]
+        
+        for sort_type in sort_options:
+            if len(collected) >= target_count:
                 break
             
+            posts = self.get_posts(submolt=submolt, sort=sort_type, limit=25)
+            
+            if not posts:
+                continue
+            
             new_in_batch = 0
-            scraped_at = datetime.utcnow().isoformat()
+            scraped_at = datetime.now(timezone.utc).isoformat()
             
             for post in posts:
                 post_id = post.get("id", "")
@@ -209,13 +211,7 @@ class MoltbookScraper:
                 if len(collected) >= target_count:
                     break
             
-            if new_in_batch == 0:
-                consecutive_dupes += 1
-            else:
-                consecutive_dupes = 0
-            
-            page += 1
-            print(f"  Page {page}: Found {new_in_batch} new posts (total: {len(collected)})")
+            print(f"  Sort={sort_type}: Found {new_in_batch} new posts (total: {len(collected)})")
         
         print(f"Collected {len(collected)} new posts from m/{submolt}")
         return collected
