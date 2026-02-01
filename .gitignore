@@ -1,0 +1,13 @@
+# Data files (too large for git, track separately)
+data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
